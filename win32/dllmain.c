@@ -25,6 +25,10 @@
 #include <libxml/threads.h>
 #endif
 
+#if defined(_DLL) && defined(_MT)
+#	define USES_STATICALLY_LINKED_MULTITHREADED_CRT
+#endif
+
 /* TODO this file, or part of it, could be machine generated, to
 	allow extensions and SAPIs adding their own init stuff.
 	However expected is that MINIT is enough in most cases.
@@ -39,25 +43,17 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID dummy)
 	switch (reason)
 	{
 		case DLL_PROCESS_ATTACH:
+
+#ifndef USES_STATICALLY_LINKED_MULTITHREADED_CRT
+			DisableThreadLibraryCalls();
+#endif
+
 			ret = ret && php_win32_init_gettimeofday();
 			if (!ret) {
 				fprintf(stderr, "gettimeofday() initialization failed");
 				return ret;
 			}
 			break;
-#if 0 /* prepared */
-		case DLL_PROCESS_DETACH:
-			/* pass */
-			break;
-
-		case DLL_THREAD_ATTACH:
-			/* pass */
-			break;
-
-		case DLL_THREAD_DETACH:
-			/* pass */
-			break;
-#endif
 	}
 
 #ifdef HAVE_LIBXML
