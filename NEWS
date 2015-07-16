@@ -8,6 +8,8 @@
   . Fixed bug #70012 (Exception lost with nested finally block). (Laruence)
   . Fixed bug #69996 (Changing the property of a cloned object affects the
     original). (Dmitry, Laruence)
+  . Fixed bug #70083 (Use after free with assign by ref to overloaded objects).
+    (Bob)
 
 - Curl:
   . Fixed bug #70065 (curl_getinfo() returns corrupted values). (Anatol)
@@ -26,6 +28,8 @@
   . Fixed bug #70058 (Build fails when building for i386). (Laruence)
 
 - Soap:
+  . Fixed bug #70079 (Segmentation fault after more than 100 SoapClient
+    calls). (Laruence)
   . Fixed bug #70032 (make_http_soap_request calls
     zend_hash_get_current_key_ex(,,,NULL). (Laruence)
 

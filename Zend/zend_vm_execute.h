@@ -18394,11 +18394,18 @@ static ZEND_OPCODE_HANDLER_RET ZEND_FASTCALL ZEND_ASSIGN_REF_SPEC_VAR_VAR_HANDLE
 		HANDLE_EXCEPTION();
 	}
 	if (IS_VAR == IS_VAR &&
+	    UNEXPECTED(Z_TYPE_P(EX_VAR(opline->op1.var)) != IS_INDIRECT) &&
+	    UNEXPECTED(!Z_ISREF_P(EX_VAR(opline->op1.var)))) {
+		zend_throw_error(NULL, "Cannot assign by reference to overloaded object");
+		if (free_op2) {zval_ptr_dtor_nogc(free_op2);};
+		HANDLE_EXCEPTION();
+	}
+	if (IS_VAR == IS_VAR &&
 	    (value_ptr == &EG(uninitialized_zval) ||
 	     (opline->extended_value == ZEND_RETURNS_FUNCTION &&
 	      !(Z_VAR_FLAGS_P(value_ptr) & IS_VAR_RET_REF)))) {
-		if (!(free_op2 != NULL)) {
-			PZVAL_LOCK(value_ptr); /* undo the effect of get_zval_ptr_ptr() */
+		if (!(free_op2 != NULL) && UNEXPECTED(Z_TYPE_P(EX_VAR(opline->op2.var)) != IS_INDIRECT)) { /* undo the effect of get_zval_ptr_ptr() */
+			Z_TRY_ADDREF_P(value_ptr);
 		}
 		zend_error(E_NOTICE, "Only variables should be assigned by reference");
 		if (UNEXPECTED(EG(exception) != NULL)) {
@@ -18412,14 +18419,6 @@ static ZEND_OPCODE_HANDLER_RET ZEND_FASTCALL ZEND_ASSIGN_REF_SPEC_VAR_VAR_HANDLE
 	if (IS_VAR == IS_VAR && UNEXPECTED(variable_ptr == NULL)) {
 		zend_throw_error(NULL, "Cannot create references to/from string offsets nor overloaded objects");
 		if (free_op2) {zval_ptr_dtor_nogc(free_op2);};
-		HANDLE_EXCEPTION();
-	}
-	if (IS_VAR == IS_VAR &&
-	    UNEXPECTED(Z_TYPE_P(EX_VAR(opline->op1.var)) != IS_INDIRECT) &&
-	    UNEXPECTED(!Z_ISREF_P(variable_ptr))) {
-		zend_throw_error(NULL, "Cannot assign by reference to overloaded object");
-		if (free_op2) {zval_ptr_dtor_nogc(free_op2);};
-		if (free_op1) {zval_ptr_dtor_nogc(free_op1);};
 		HANDLE_EXCEPTION();
 	}
 	if ((IS_VAR == IS_VAR && UNEXPECTED(variable_ptr == &EG(error_zval))) ||
@@ -20615,12 +20614,19 @@ static ZEND_OPCODE_HANDLER_RET ZEND_FASTCALL ZEND_ASSIGN_REF_SPEC_VAR_CV_HANDLER
 		zval_ptr_dtor_nogc(EX_VAR(opline->op1.var));
 		HANDLE_EXCEPTION();
 	}
+	if (IS_VAR == IS_VAR &&
+	    UNEXPECTED(Z_TYPE_P(EX_VAR(opline->op1.var)) != IS_INDIRECT) &&
+	    UNEXPECTED(!Z_ISREF_P(EX_VAR(opline->op1.var)))) {
+		zend_throw_error(NULL, "Cannot assign by reference to overloaded object");
+
+		HANDLE_EXCEPTION();
+	}
 	if (IS_CV == IS_VAR &&
 	    (value_ptr == &EG(uninitialized_zval) ||
 	     (opline->extended_value == ZEND_RETURNS_FUNCTION &&
 	      !(Z_VAR_FLAGS_P(value_ptr) & IS_VAR_RET_REF)))) {
-		if (!0) {
-			PZVAL_LOCK(value_ptr); /* undo the effect of get_zval_ptr_ptr() */
+		if (!0 && UNEXPECTED(Z_TYPE_P(EX_VAR(opline->op2.var)) != IS_INDIRECT)) { /* undo the effect of get_zval_ptr_ptr() */
+			Z_TRY_ADDREF_P(value_ptr);
 		}
 		zend_error(E_NOTICE, "Only variables should be assigned by reference");
 		if (UNEXPECTED(EG(exception) != NULL)) {
@@ -20634,14 +20640,6 @@ static ZEND_OPCODE_HANDLER_RET ZEND_FASTCALL ZEND_ASSIGN_REF_SPEC_VAR_CV_HANDLER
 	if (IS_VAR == IS_VAR && UNEXPECTED(variable_ptr == NULL)) {
 		zend_throw_error(NULL, "Cannot create references to/from string offsets nor overloaded objects");
 
-		HANDLE_EXCEPTION();
-	}
-	if (IS_VAR == IS_VAR &&
-	    UNEXPECTED(Z_TYPE_P(EX_VAR(opline->op1.var)) != IS_INDIRECT) &&
-	    UNEXPECTED(!Z_ISREF_P(variable_ptr))) {
-		zend_throw_error(NULL, "Cannot assign by reference to overloaded object");
-
-		if (free_op1) {zval_ptr_dtor_nogc(free_op1);};
 		HANDLE_EXCEPTION();
 	}
 	if ((IS_VAR == IS_VAR && UNEXPECTED(variable_ptr == &EG(error_zval))) ||
@@ -33235,12 +33233,19 @@ static ZEND_OPCODE_HANDLER_RET ZEND_FASTCALL ZEND_ASSIGN_REF_SPEC_CV_VAR_HANDLER
 
 		HANDLE_EXCEPTION();
 	}
+	if (IS_CV == IS_VAR &&
+	    UNEXPECTED(Z_TYPE_P(EX_VAR(opline->op1.var)) != IS_INDIRECT) &&
+	    UNEXPECTED(!Z_ISREF_P(EX_VAR(opline->op1.var)))) {
+		zend_throw_error(NULL, "Cannot assign by reference to overloaded object");
+		if (free_op2) {zval_ptr_dtor_nogc(free_op2);};
+		HANDLE_EXCEPTION();
+	}
 	if (IS_VAR == IS_VAR &&
 	    (value_ptr == &EG(uninitialized_zval) ||
 	     (opline->extended_value == ZEND_RETURNS_FUNCTION &&
 	      !(Z_VAR_FLAGS_P(value_ptr) & IS_VAR_RET_REF)))) {
-		if (!(free_op2 != NULL)) {
-			PZVAL_LOCK(value_ptr); /* undo the effect of get_zval_ptr_ptr() */
+		if (!(free_op2 != NULL) && UNEXPECTED(Z_TYPE_P(EX_VAR(opline->op2.var)) != IS_INDIRECT)) { /* undo the effect of get_zval_ptr_ptr() */
+			Z_TRY_ADDREF_P(value_ptr);
 		}
 		zend_error(E_NOTICE, "Only variables should be assigned by reference");
 		if (UNEXPECTED(EG(exception) != NULL)) {
@@ -33254,14 +33259,6 @@ static ZEND_OPCODE_HANDLER_RET ZEND_FASTCALL ZEND_ASSIGN_REF_SPEC_CV_VAR_HANDLER
 	if (IS_CV == IS_VAR && UNEXPECTED(variable_ptr == NULL)) {
 		zend_throw_error(NULL, "Cannot create references to/from string offsets nor overloaded objects");
 		if (free_op2) {zval_ptr_dtor_nogc(free_op2);};
-		HANDLE_EXCEPTION();
-	}
-	if (IS_CV == IS_VAR &&
-	    UNEXPECTED(Z_TYPE_P(EX_VAR(opline->op1.var)) != IS_INDIRECT) &&
-	    UNEXPECTED(!Z_ISREF_P(variable_ptr))) {
-		zend_throw_error(NULL, "Cannot assign by reference to overloaded object");
-		if (free_op2) {zval_ptr_dtor_nogc(free_op2);};
-
 		HANDLE_EXCEPTION();
 	}
 	if ((IS_CV == IS_VAR && UNEXPECTED(variable_ptr == &EG(error_zval))) ||
@@ -36588,11 +36585,18 @@ static ZEND_OPCODE_HANDLER_RET ZEND_FASTCALL ZEND_ASSIGN_REF_SPEC_CV_CV_HANDLER(
 		HANDLE_EXCEPTION();
 	}
 	if (IS_CV == IS_VAR &&
+	    UNEXPECTED(Z_TYPE_P(EX_VAR(opline->op1.var)) != IS_INDIRECT) &&
+	    UNEXPECTED(!Z_ISREF_P(EX_VAR(opline->op1.var)))) {
+		zend_throw_error(NULL, "Cannot assign by reference to overloaded object");
+
+		HANDLE_EXCEPTION();
+	}
+	if (IS_CV == IS_VAR &&
 	    (value_ptr == &EG(uninitialized_zval) ||
 	     (opline->extended_value == ZEND_RETURNS_FUNCTION &&
 	      !(Z_VAR_FLAGS_P(value_ptr) & IS_VAR_RET_REF)))) {
-		if (!0) {
-			PZVAL_LOCK(value_ptr); /* undo the effect of get_zval_ptr_ptr() */
+		if (!0 && UNEXPECTED(Z_TYPE_P(EX_VAR(opline->op2.var)) != IS_INDIRECT)) { /* undo the effect of get_zval_ptr_ptr() */
+			Z_TRY_ADDREF_P(value_ptr);
 		}
 		zend_error(E_NOTICE, "Only variables should be assigned by reference");
 		if (UNEXPECTED(EG(exception) != NULL)) {
@@ -36605,14 +36609,6 @@ static ZEND_OPCODE_HANDLER_RET ZEND_FASTCALL ZEND_ASSIGN_REF_SPEC_CV_CV_HANDLER(
 	variable_ptr = _get_zval_ptr_cv_undef_BP_VAR_W(execute_data, opline->op1.var);
 	if (IS_CV == IS_VAR && UNEXPECTED(variable_ptr == NULL)) {
 		zend_throw_error(NULL, "Cannot create references to/from string offsets nor overloaded objects");
-
-		HANDLE_EXCEPTION();
-	}
-	if (IS_CV == IS_VAR &&
-	    UNEXPECTED(Z_TYPE_P(EX_VAR(opline->op1.var)) != IS_INDIRECT) &&
-	    UNEXPECTED(!Z_ISREF_P(variable_ptr))) {
-		zend_throw_error(NULL, "Cannot assign by reference to overloaded object");
-
 
 		HANDLE_EXCEPTION();
 	}
@@ -49553,10 +49549,7 @@ ZEND_API int zend_vm_call_opcode_handler(zend_execute_data* ex)
 	LOAD_OPLINE();
 #if defined(ZEND_VM_FP_GLOBAL_REG) && defined(ZEND_VM_IP_GLOBAL_REG)
 	((opcode_handler_t)OPLINE->handler)(ZEND_OPCODE_HANDLER_ARGS_PASSTHRU);
-	ret = (opline) ? execute_data != ex : -1;
-	if (ret == 1 && execute_data->prev_execute_data != ex) {
-		ret = 2;;
-	}
+	ret = opline? ((execute_data != ex)? (int)(execute_data->prev_execute_data != ex) + 1 : 0) : -1;
 #else
 	ret = ((opcode_handler_t)OPLINE->handler)(ZEND_OPCODE_HANDLER_ARGS_PASSTHRU);
 #endif
