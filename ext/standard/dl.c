@@ -133,9 +133,9 @@ PHPAPI int php_load_extension(char *filename, int type, int start_now)
 	if (!handle) {
 #if PHP_WIN32
 		char *err = GET_DL_ERROR();
-		if (err && (*err != '\0')) {
+		if (err != NULL) {
 			php_error_docref(NULL, error_type, "Unable to load dynamic library '%s' - %s", libpath, err);
-			LocalFree(err);
+			free(err);
 		} else {
 			php_error_docref(NULL, error_type, "Unable to load dynamic library '%s' - %s", libpath, "Unknown reason");
 		}

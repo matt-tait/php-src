@@ -573,9 +573,6 @@ PHP_INI_BEGIN()
 	STD_PHP_INI_ENTRY("user_ini.filename",		".user.ini",	PHP_INI_SYSTEM,		OnUpdateString,		user_ini_filename,	php_core_globals,		core_globals)
 	STD_PHP_INI_ENTRY("user_ini.cache_ttl",		"300",			PHP_INI_SYSTEM,		OnUpdateLong,		user_ini_cache_ttl,	php_core_globals,		core_globals)
 	STD_PHP_INI_BOOLEAN("exit_on_timeout",		"0",		PHP_INI_ALL,		OnUpdateBool,			exit_on_timeout,			php_core_globals,	core_globals)
-#ifdef PHP_WIN32
-	STD_PHP_INI_BOOLEAN("windows.show_crt_warning",		"0",		PHP_INI_ALL,		OnUpdateBool,			windows_show_crt_warning,			php_core_globals,	core_globals)
-#endif
 PHP_INI_END()
 /* }}} */
 
@@ -1954,39 +1951,6 @@ static int php_register_extensions_bc(zend_module_entry *ptr, int count)
 }
 /* }}} */
 
-#ifdef PHP_WIN32
-static _invalid_parameter_handler old_invalid_parameter_handler;
-
-void dummy_invalid_parameter_handler(
-		const wchar_t *expression,
-		const wchar_t *function,
-		const wchar_t *file,
-		unsigned int   line,
-		uintptr_t      pEwserved)
-{
-	static int called = 0;
-	char buf[1024];
-	int len;
-
-	if (!called) {
-			if(PG(windows_show_crt_warning)) {
-			called = 1;
-			if (function) {
-				if (file) {
-					len = _snprintf(buf, sizeof(buf)-1, "Invalid parameter detected in CRT function '%ws' (%ws:%u)", function, file, line);
-				} else {
-					len = _snprintf(buf, sizeof(buf)-1, "Invalid parameter detected in CRT function '%ws'", function);
-				}
-			} else {
-				len = _snprintf(buf, sizeof(buf)-1, "Invalid CRT parameter detected (function not known)");
-			}
-			zend_error(E_WARNING, "%s", buf);
-			called = 0;
-		}
-	}
-}
-#endif
-
 /* {{{ php_module_startup
  */
 int php_module_startup(sapi_module_struct *sf, zend_module_entry *additional_modules, uint num_additional_modules)
@@ -2003,25 +1967,12 @@ int php_module_startup(sapi_module_struct *sf, zend_module_entry *additional_mod
 #endif
 #ifdef PHP_WIN32
 	php_os = "WINNT";
-
-	old_invalid_parameter_handler =
-		_set_invalid_parameter_handler(dummy_invalid_parameter_handler);
-	if (old_invalid_parameter_handler != NULL) {
-		_set_invalid_parameter_handler(old_invalid_parameter_handler);
-	}
-
-	/* Disable the message box for assertions.*/
-	_CrtSetReportMode(_CRT_ASSERT, 0);
 #else
 	php_os = PHP_OS;
 #endif
 
 #ifdef ZTS
 	(void)ts_resource(0);
-#endif
-
-#ifdef PHP_WIN32
-	php_win32_init_rng_lock();
 #endif
 
 	module_shutdown = 0;
@@ -2334,10 +2285,6 @@ void php_module_shutdown(void)
 	WSACleanup();
 #endif
 
-#ifdef PHP_WIN32
-	php_win32_free_rng_lock();
-#endif
-
 	sapi_flush();
 
 	zend_shutdown();
@@ -2366,12 +2313,6 @@ void php_module_shutdown(void)
 	gc_globals_dtor();
 #else
 	ts_free_id(core_globals_id);
-#endif
-
-#ifdef PHP_WIN32
-	if (old_invalid_parameter_handler == NULL) {
-		_set_invalid_parameter_handler(old_invalid_parameter_handler);
-	}
 #endif
 }
 /* }}} */

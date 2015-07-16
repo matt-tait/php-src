@@ -22,16 +22,30 @@
 #include "php.h"
 #include <wincrypt.h>
 
+#if _MSC_VER >= 1800	// __fastfail support added in VS2013
+#	define CRYPTO_SECURITY_ERROR()	__fastfail(FAST_FAIL_CRYPTO_LIBRARY)
+#else
+#	define CRYPTO_SECURITY_ERROR()	abort()
+#endif
+
 PHPAPI char *php_win32_error_to_msg(DWORD error)
 {
-	char *buf = NULL;
+	char* buf = NULL;
+	char* dupstring = NULL;
 
 	FormatMessageA(
 		FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |	FORMAT_MESSAGE_IGNORE_INSERTS,
 		NULL, error, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),	(LPTSTR)&buf, 0, NULL
 	);
 
-	return (buf ? (char *) buf : "");
+	// FormatMessage allocates a buffer on the LocalAlloc heap, but we should return a pointer to the malloc heap
+	// so that callers can pass it to free.
+	if (buf != NULL)
+		dupstring = strdup(buf);
+	if(buf != NULL)
+		LocalFree(buf);
+
+	return dupstring;
 }
 
 int php_win32_check_trailing_space(const char * path, const int path_len) {
@@ -49,79 +63,47 @@ int php_win32_check_trailing_space(const char * path, const int path_len) {
 	}
 }
 
-HCRYPTPROV   hCryptProv;
-unsigned int has_crypto_ctx = 0;
-
-#ifdef ZTS
-MUTEX_T php_lock_win32_cryptoctx;
-void php_win32_init_rng_lock()
+void CryptGenRandom64(HCRYPTPROV hCryptProv, BYTE* buf, size_t size)
 {
-	php_lock_win32_cryptoctx = tsrm_mutex_alloc();
+	size_t cbRemaining = size;
+	DWORD dwAmountThisLoop;
+	size_t ptr = 0;
+
+	// CryptGenRandom takes the buffer size as a DWORD, not a SIZE_T, so we may need to loop round if they are not the same (i.e. on 64-bit).
+	while (ptr < size)
+	{
+		cbRemaining = (size - ptr);
+		if (cbRemaining > MAXINT32)
+			dwAmountThisLoop = MAXINT32;
+		else
+			dwAmountThisLoop = (DWORD)cbRemaining;
+
+		if (!CryptGenRandom(hCryptProv, dwAmountThisLoop, &buf[ptr]))
+			CRYPTO_SECURITY_ERROR();
+		ptr += dwAmountThisLoop;
+	}
+
+	assert(ptr == size);
 }
 
-void php_win32_free_rng_lock()
-{
-	tsrm_mutex_lock(php_lock_win32_cryptoctx);
-	if (has_crypto_ctx == 1) {
-		CryptReleaseContext(hCryptProv, 0);
-		has_crypto_ctx = 0;
-	}
-	tsrm_mutex_unlock(php_lock_win32_cryptoctx);
-	tsrm_mutex_free(php_lock_win32_cryptoctx);
+int php_win32_get_random_bytes(unsigned char *buf, size_t size) {
 
+	HCRYPTPROV hCryptProv;
+
+	if (!CryptAcquireContext(&hCryptProv, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT | CRYPT_SILENT)) {
+		CRYPTO_SECURITY_ERROR();
+	}
+
+	CryptGenRandom64(hCryptProv, buf, size);
+
+	if (!CryptReleaseContext(hCryptProv, 0)) {
+		CRYPTO_SECURITY_ERROR();
+	}
+
+	// This function always succeeds, or triggers a security abort.
+	return SUCCESS;
 }
-#else
-#define php_win32_init_rng_lock();
-#define php_win32_free_rng_lock();
-#endif
 
-
-
-PHPAPI int php_win32_get_random_bytes(unsigned char *buf, size_t size) {  /* {{{ */
-
-	BOOL ret;
-
-#ifdef ZTS
-	tsrm_mutex_lock(php_lock_win32_cryptoctx);
-#endif
-
-	if (has_crypto_ctx == 0) {
-		/* CRYPT_VERIFYCONTEXT > only hashing&co-like use, no need to acces prv keys */
-		if (!CryptAcquireContext(&hCryptProv, NULL, NULL, PROV_RSA_FULL, CRYPT_MACHINE_KEYSET|CRYPT_VERIFYCONTEXT )) {
-			/* Could mean that the key container does not exist, let try
-			   again by asking for a new one. If it fails here, it surely means that the user running
-               this process does not have the permission(s) to use this container.
-             */
-			if (GetLastError() == NTE_BAD_KEYSET) {
-				if (CryptAcquireContext(&hCryptProv, NULL, NULL, PROV_RSA_FULL, CRYPT_NEWKEYSET | CRYPT_MACHINE_KEYSET | CRYPT_VERIFYCONTEXT )) {
-					has_crypto_ctx = 1;
-				} else {
-					has_crypto_ctx = 0;
-				}
-			}
-		} else {
-			has_crypto_ctx = 1;
-		}
-	}
-
-#ifdef ZTS
-	tsrm_mutex_unlock(php_lock_win32_cryptoctx);
-#endif
-
-	if (has_crypto_ctx == 0) {
-		return FAILURE;
-	}
-
-	/* XXX should go in the loop if size exceeds UINT_MAX */
-	ret = CryptGenRandom(hCryptProv, (DWORD)size, buf);
-
-	if (ret) {
-		return SUCCESS;
-	} else {
-		return FAILURE;
-	}
-}
-/* }}} */
 
 /*
  * Local variables:
